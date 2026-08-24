@@ -1,0 +1,24 @@
+[
+  {
+    "key": "ctrl+b",
+    "command": "workbench.action.focusSideBar",
+    "when": "!sideBarFocus"
+  },
+  {
+    "key": "ctrl+b",
+    "command": "workbench.action.toggleSidebarVisibility",
+    "when": "sideBarFocus"
+  },
+  {
+    "key": "ctrl+e",
+    "command": "workbench.files.action.collapseExplorerFolders"
+  },
+  {
+    "key": "ctrl+p",
+    "command": "workbench.action.quickOpen"
+  },
+  {
+    "key": "ctrl+w",
+    "command": "workbench.action.closeActiveEditor"
+  }
+]

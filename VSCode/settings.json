@@ -1,0 +1,49 @@
+{
+  "security.allowedUNCHosts": ["wsl.localhost"],
+  "editor.fontFamily": "Mono Lisa",
+  "editor.fontSize": 18,
+  "terminal.integrated.fontSize": 18,
+  "window.zoomLevel": 1,
+  "editor.wordWrap": "on",
+  "github.copilot.enable": {
+    "*": false,
+    "plaintext": false,
+    "markdown": false,
+    "scminput": false
+  },
+  "files.autoSave": "onFocusChange",
+  "vim.handleKeys": {
+    "<C-b>": false
+  },
+  "dotnet.preferVisualStudioCodeFileSystemWatcher": true,
+  "explorer.fileNesting.patterns": {
+    "*.ts": "${capture}.js",
+    "*.js": "${capture}.js.map, ${capture}.min.js, ${capture}.d.ts",
+    "*.jsx": "${capture}.js",
+    "*.tsx": "${capture}.ts",
+    "tsconfig.json": "tsconfig.*.json",
+    "package.json": "package-lock.json, yarn.lock, pnpm-lock.yaml, bun.lockb, bun.lock",
+    "*.cs": "${capture}.designer.cs,${capture}.g.cs,${capture}.generated.cs,${capture}.run.json,${capture}.settings.json,${capture}.settings.*.json",
+    "*.csproj": "${capture}.csproj.user",
+    "*.json": "${capture}.Development.json",
+    "*.cshtml": "${capture}.cshtml.cs,${capture}.cshtml.css",
+    "*.razor": "${capture}.razor.cs,${capture}.razor.css",
+    "*.resx": "${capture}.Designer.cs",
+    "*.xaml": "${capture}.xaml.cs",
+    "*.sqlite": "${capture}.${extname}-*",
+    "*.db": "${capture}.${extname}-*",
+    "*.sqlite3": "${capture}.${extname}-*",
+    "*.db3": "${capture}.${extname}-*",
+    "*.sdb": "${capture}.${extname}-*",
+    "*.s3db": "${capture}.${extname}-*"
+  },
+  "editor.formatOnSave": true,
+  "editor.formatOnPaste": true,
+  "editor.formatOnType": true,
+  "editor.linkedEditing": true,
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "[csharp]": {
+    "editor.defaultFormatter": "ms-dotnettools.csharp"
+  },
+  "css.lint.unknownAtRules": "ignore"
+}
