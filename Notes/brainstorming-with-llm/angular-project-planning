@@ -1,0 +1,1328 @@
+# Q : What are essential things to consider when creating a new Angular project for a company? The Angular project will be using Figma that was built on top of "Material Design 3" as its foundation. The project will be created in Azure DevOps environment. The project needs to be developed reasonably quickly and maintained long-term. I am the only developer on the project and will be working on the project all by myself.
+
+For a **solo developer building a company Angular application that needs to ship quickly but remain maintainable for years**, I would deliberately avoid building an elaborate architecture. The goal should be a project that is **easy for you to understand six months from now, easy for another developer to inherit later, and hard to accidentally make messy**.
+
+Angular's current guidance strongly favors standalone components, feature-oriented organization, and keeping components focused on presentation. ([Angular][1])
+
+## 1. Start with the right architectural philosophy
+
+I would use this principle:
+
+> **Keep the application simple at the beginning, but make the boundaries clear enough that it can grow.**
+
+For a solo developer, I would **not** start with:
+
+- Micro-frontends
+- Nx monorepo unless there is a concrete need
+- A custom design-system framework
+- Multiple state-management libraries
+- Excessive abstraction layers
+- A giant `shared/` directory
+- Dozens of Angular libraries
+- Enterprise-level ceremony around every component
+
+Those things can be useful in large organizations, but they can slow down a one-person project substantially.
+
+A good starting stack would be roughly:
+
+**Angular**
+→ Standalone components
+→ Signals + RxJS
+→ Angular Router
+→ Angular Material where appropriate
+→ Your Figma design system layered on top
+→ REST/API services
+→ Unit/component testing
+→ ESLint + formatting
+→ Azure DevOps Git + Pipelines
+→ Automated CI/CD
+
+Angular's current documentation describes standalone components as the default and provides migrations specifically around standalone APIs, which makes this a sensible foundation for a new application. ([Angular][2])
+
+---
+
+# 2. Establish your Figma → Angular strategy before writing much UI
+
+This is probably the **most important architectural decision** in your particular project.
+
+You have:
+
+**Figma**
+→ based on **Material Design 3**
+→ Angular application
+
+Don't treat Figma as something you manually reproduce screen-by-screen.
+
+Instead, establish a hierarchy:
+
+```text
+Figma Design System
+        ↓
+Design Tokens
+        ↓
+Angular Theme / CSS Variables
+        ↓
+Angular Material
+        ↓
+Company UI Components
+        ↓
+Feature Components
+        ↓
+Pages
+```
+
+This prevents every developer—or future you—from inventing slightly different versions of the same button, spacing, typography, dialog, etc.
+
+### Design tokens
+
+Identify the Figma tokens for things such as:
+
+- Primary / secondary / tertiary colors
+- Surface colors
+- Text colors
+- Error / warning / success
+- Typography
+- Font sizes
+- Font weights
+- Line heights
+- Border radius
+- Spacing
+- Elevation
+- Breakpoints
+
+Then establish an Angular representation of those tokens.
+
+For example:
+
+```css
+:root {
+  --app-color-primary: ...;
+  --app-color-surface: ...;
+  --app-color-text: ...;
+
+  --app-spacing-xs: ...;
+  --app-spacing-sm: ...;
+  --app-spacing-md: ...;
+
+  --app-radius-sm: ...;
+  --app-radius-md: ...;
+}
+```
+
+The exact implementation depends on how the Figma system is delivered.
+
+The important rule is:
+
+> **Don't scatter literal design values throughout components.**
+
+Avoid:
+
+```css
+margin: 13px;
+color: #3478db;
+border-radius: 7px;
+```
+
+when those values are supposed to represent company design decisions.
+
+---
+
+# 3. Decide what belongs to Angular Material vs your company design system
+
+This distinction is extremely important.
+
+You shouldn't automatically build your own replacement for every Material component.
+
+A sensible hierarchy is:
+
+### Use Angular Material directly
+
+For things like:
+
+- Button
+- Checkbox
+- Radio
+- Select
+- Input
+- Dialog
+- Menu
+- Tooltip
+- Progress indicator
+- Tabs
+- Snackbar
+
+when the Material component already satisfies the design.
+
+### Wrap/customize Material components
+
+When your company's design requires a different API or appearance.
+
+For example:
+
+```html
+<company-button variant="primary"> Submit </company-button>
+```
+
+internally implemented with Material.
+
+### Create truly custom components
+
+Only when the business/design requirement isn't adequately served by Material.
+
+For example:
+
+```text
+account-summary
+customer-status
+transaction-timeline
+portfolio-card
+```
+
+This gives you a very important separation:
+
+```text
+Material
+   ↓
+Company UI
+   ↓
+Business UI
+```
+
+rather than:
+
+```text
+Every screen individually styles Material components
+```
+
+That second approach tends to become difficult to maintain.
+
+---
+
+# 4. Create a small internal design-system layer
+
+I would probably create something like:
+
+```text
+src/
+  app/
+    core/
+    shared/
+      ui/
+        button/
+        card/
+        ...
+      directives/
+      pipes/
+    features/
+      dashboard/
+      customers/
+      reports/
+```
+
+But I would **not** put every reusable thing into `shared`.
+
+A good rule is:
+
+> Something belongs in shared code only when it is genuinely reusable across multiple features.
+
+For example:
+
+```text
+shared/ui/
+  company-button
+  company-dialog
+  page-header
+  loading-indicator
+  empty-state
+```
+
+Whereas:
+
+```text
+features/customers/
+  customer-table
+  customer-filter
+  customer-details
+```
+
+should remain with the customer feature.
+
+Angular's style guide explicitly recommends organizing code around **feature areas**, rather than creating broad directories based solely on technical type such as `components`, `services`, and `directives`. ([Angular][1])
+
+---
+
+# 5. Organize by feature, not by technical layer
+
+I strongly recommend something like:
+
+```text
+src/
+  app/
+    core/
+      auth/
+      http/
+      configuration/
+      logging/
+
+    shared/
+      ui/
+      pipes/
+      directives/
+
+    features/
+      dashboard/
+        dashboard.routes.ts
+        pages/
+        components/
+        services/
+
+      customers/
+        customers.routes.ts
+        pages/
+        components/
+        services/
+
+      reports/
+        reports.routes.ts
+        pages/
+        components/
+        services/
+
+    app.routes.ts
+    app.config.ts
+```
+
+rather than:
+
+```text
+components/
+services/
+models/
+pages/
+interfaces/
+utils/
+```
+
+The latter looks organized initially but becomes painful as the application grows.
+
+Feature-oriented organization means that when you're working on Customers, most of what you need is in:
+
+```text
+features/customers/
+```
+
+Angular itself recommends grouping closely related files and organizing application code by feature areas. ([Angular][1])
+
+---
+
+# 6. Keep `core` extremely small
+
+For a solo project, `core` should mean:
+
+> Things that represent application infrastructure rather than business features.
+
+For example:
+
+```text
+core/
+  auth/
+  http/
+  configuration/
+  logging/
+  guards/
+```
+
+Potentially:
+
+```text
+core/
+  api/
+  error-handling/
+```
+
+But don't dump generic reusable code here.
+
+A classic Angular mistake is ending up with:
+
+```text
+core/
+  helpers/
+  utilities/
+  managers/
+  common/
+  base/
+  shared/
+```
+
+which eventually becomes a junk drawer.
+
+---
+
+# 7. Be intentional about state management
+
+This is an area where I would **avoid overengineering heavily**.
+
+You already have Angular Signals and RxJS.
+
+For most applications, start with:
+
+### Local UI state
+
+Use signals:
+
+```ts
+readonly isLoading = signal(false);
+readonly selectedCustomer = signal<Customer | null>(null);
+```
+
+### Derived state
+
+Use `computed()`:
+
+```ts
+readonly canSubmit = computed(() =>
+  this.selectedCustomer() !== null
+);
+```
+
+### Asynchronous streams
+
+Use RxJS:
+
+```ts
+customers$;
+```
+
+for things like:
+
+- HTTP streams
+- autocomplete
+- debouncing
+- complex event streams
+- cancellation
+- combining asynchronous sources
+
+### Shared application state
+
+Only introduce a dedicated state library if the application actually demonstrates a need for one.
+
+For a solo project I'd strongly prefer:
+
+```text
+Signals
++
+RxJS
++
+well-designed services
+```
+
+before automatically introducing NgRx or another state-management framework.
+
+---
+
+# 8. Establish an API architecture early
+
+If this Angular application talks to a backend, don't let API calls spread throughout components.
+
+Avoid:
+
+```ts
+@Component(...)
+export class CustomerComponent {
+  http = inject(HttpClient);
+
+  loadCustomers() {
+    this.http.get('/api/customers');
+  }
+}
+```
+
+Prefer:
+
+```text
+Component
+   ↓
+Feature service / facade
+   ↓
+API service
+   ↓
+HttpClient
+```
+
+For example:
+
+```text
+features/customers/
+  services/
+    customer.service.ts
+    customer-api.service.ts
+```
+
+You can keep this lightweight.
+
+A simple pattern is often enough:
+
+```ts
+@Injectable()
+export class CustomerService {
+  private readonly api = inject(CustomerApiService);
+
+  getCustomers() {
+    return this.api.getCustomers();
+  }
+}
+```
+
+Don't automatically create five abstraction layers around an HTTP request.
+
+---
+
+# 9. Put HTTP concerns in one place
+
+Establish these early:
+
+### Authentication
+
+```text
+auth interceptor
+```
+
+### Authorization
+
+```text
+route guards
+```
+
+### Common headers
+
+```text
+HTTP interceptor
+```
+
+### Error handling
+
+```text
+HTTP interceptor
++
+central error handling
+```
+
+### Correlation/request ID
+
+Particularly useful for enterprise applications.
+
+Something like:
+
+```text
+Angular request
+      ↓
+Request ID
+      ↓
+Backend
+      ↓
+Logs
+```
+
+will make production troubleshooting dramatically easier.
+
+---
+
+# 10. Establish environment/configuration conventions early
+
+Avoid scattering values such as:
+
+```ts
+https://api.company.com
+```
+
+throughout the codebase.
+
+You want a centralized configuration strategy.
+
+For example:
+
+```text
+configuration
+  API URL
+  environment
+  feature flags
+```
+
+The exact implementation depends on how your company deploys Angular, but the principle is important:
+
+> **Configuration should be externalized from business code.**
+
+This becomes particularly valuable when you have:
+
+```text
+Development
+QA
+UAT
+Production
+```
+
+---
+
+# 11. Routing deserves some thought
+
+Set up routing with lazy-loaded feature areas.
+
+Conceptually:
+
+```text
+/
+├── login
+├── dashboard
+├── customers
+├── reports
+└── settings
+```
+
+And:
+
+```ts
+export const routes: Routes = [
+  {
+    path: "customers",
+    loadChildren: () =>
+      import("./features/customers/customers.routes").then(
+        (m) => m.CUSTOMER_ROUTES,
+      ),
+  },
+];
+```
+
+This provides a clean boundary between features.
+
+Also establish:
+
+- Authentication guards
+- Authorization rules
+- 404 handling
+- Route-level loading
+- Breadcrumb strategy
+- Document titles
+- Unsaved-changes behavior where needed
+
+---
+
+# 12. Decide your form strategy
+
+For most enterprise applications:
+
+> **Reactive Forms**
+
+are still a very practical default.
+
+Standardize:
+
+```text
+Form creation
+Validation
+Error messages
+Form submission
+Loading state
+Server-side validation
+Accessibility
+```
+
+More important than the specific form API is making sure forms consistently behave.
+
+For example, establish a company convention for:
+
+```text
+Required field
+Invalid email
+Server validation error
+Disabled state
+Submitting state
+Success state
+```
+
+That belongs partly in your UI design system.
+
+---
+
+# 13. Accessibility should be part of the architecture
+
+Don't treat accessibility as a final QA task.
+
+Your Figma system should establish things such as:
+
+- Contrast
+- Focus states
+- Keyboard interaction
+- Touch target size
+- Error states
+- Screen-reader labels
+
+Your Angular components should preserve those decisions.
+
+Angular Material can help significantly here, but don't assume using Material automatically makes the entire application accessible.
+
+For example:
+
+```html
+<mat-icon aria-hidden="true">search</mat-icon>
+```
+
+versus an icon that conveys actual information.
+
+Accessibility is much easier when incorporated into your reusable components rather than fixed page-by-page later.
+
+---
+
+# 14. Establish testing expectations early
+
+As a solo developer, you need tests primarily as **protection against your future self**.
+
+I'd use three layers.
+
+### Unit tests
+
+Test:
+
+- Services
+- Utility functions
+- Complex business logic
+- Data transformations
+
+### Component tests
+
+Test important interactions:
+
+```text
+input
+→ user action
+→ component state
+→ output
+```
+
+### End-to-end tests
+
+Don't try to E2E-test everything.
+
+Protect the most important workflows:
+
+```text
+Login
+→ Search
+→ Create
+→ Edit
+→ Submit
+→ Confirmation
+```
+
+The goal isn't maximum coverage.
+
+It's:
+
+> **High confidence around business-critical behavior.**
+
+---
+
+# 15. ESLint and formatting are important when you're alone
+
+This may sound more relevant to teams, but it is especially useful when you're the only developer.
+
+Set up:
+
+- ESLint
+- Prettier
+- TypeScript strictness
+- consistent import ordering if desired
+- unused-code detection
+
+Then automate them.
+
+For example:
+
+```bash
+npm run lint
+npm run test
+npm run build
+```
+
+The objective is to make the correct behavior the **default behavior**.
+
+---
+
+# 16. Lock down dependency management
+
+One of the easiest long-term maintenance problems is dependency drift.
+
+Commit:
+
+```text
+package.json
+package-lock.json
+```
+
+and have CI use:
+
+```bash
+npm ci
+```
+
+rather than casually installing dependencies.
+
+Also establish a policy for Angular upgrades.
+
+For example:
+
+```text
+Patch → regular
+Minor → planned
+Major Angular upgrade → deliberate maintenance task
+```
+
+Don't let the application sit untouched for years and then attempt a giant upgrade.
+
+---
+
+# 17. Azure DevOps should automate the boring things
+
+Your Azure DevOps setup should ideally give you:
+
+```text
+Git repository
+       ↓
+Pull Request
+       ↓
+Pipeline
+       ↓
+Install dependencies
+       ↓
+Lint
+       ↓
+Unit tests
+       ↓
+Build
+       ↓
+Artifact
+       ↓
+Deploy
+```
+
+Azure Pipelines explicitly supports building and testing JavaScript/Angular applications, including Angular CLI commands such as `ng test` and `ng build`. ([Microsoft Learn][3])
+
+Even though you're the only developer, **use pull requests for your own changes** when practical.
+
+It creates a permanent engineering record:
+
+```text
+Feature
+→ PR
+→ automated validation
+→ merge
+```
+
+rather than:
+
+```text
+commit → production
+```
+
+---
+
+# 18. Keep your Azure DevOps branching strategy extremely simple
+
+For one developer I would probably use:
+
+```text
+main
+  ↑
+feature/*
+```
+
+For example:
+
+```text
+main
+feature/customer-search
+feature/dashboard
+bugfix/login-error
+```
+
+I would **not** introduce GitFlow unless your organization requires it.
+
+You don't need:
+
+```text
+develop
+release
+hotfix
+qa
+staging
+production
+```
+
+branches just because they're common in large enterprises.
+
+Let the **deployment environments** provide separation rather than multiplying Git branches.
+
+---
+
+# 19. Use Azure DevOps branch policies even though you're alone
+
+This is one of the rare cases where enterprise-style controls are worth keeping.
+
+For `main`:
+
+```text
+No direct pushes
+       ↓
+Pull Request
+       ↓
+Pipeline must pass
+       ↓
+Merge
+```
+
+Require at least:
+
+- Successful build
+- Successful tests
+- Successful lint
+- Linked work item if your organization requires it
+
+You may technically be approving your own PR, depending on company policy, but the automation still catches problems.
+
+---
+
+# 20. Document the things you will forget
+
+Because you're alone, documentation isn't primarily for your coworkers.
+
+It's for **future you**.
+
+I'd create:
+
+```text
+README.md
+ARCHITECTURE.md
+CONTRIBUTING.md
+docs/
+  design-system.md
+  deployment.md
+  testing.md
+```
+
+But keep them short.
+
+Especially document:
+
+### Why
+
+Not just:
+
+> "We use Signals."
+
+Instead:
+
+> "Signals are used for local synchronous UI state. RxJS is used for asynchronous streams and cancellation."
+
+That distinction prevents architectural drift.
+
+---
+
+# 21. Create an ADR folder
+
+This is one of the highest-value things you can do with very little effort.
+
+For example:
+
+```text
+docs/adr/
+
+0001-use-standalone-components.md
+0002-use-angular-material.md
+0003-state-management-strategy.md
+0004-feature-based-architecture.md
+0005-api-error-handling.md
+```
+
+Each document can be tiny:
+
+```text
+Decision:
+Use Signals for local UI state.
+
+Why:
+We want to avoid adding a state-management framework
+until application complexity warrants it.
+
+Consequences:
+Some cross-feature state will be implemented through
+services/signals.
+```
+
+Six months later, this can save you a tremendous amount of time.
+
+---
+
+# 22. Don't create abstractions until there is evidence you need them
+
+This is particularly important for a solo developer.
+
+Suppose you have:
+
+```text
+CustomerService
+```
+
+Don't immediately create:
+
+```text
+ICustomerRepository
+CustomerRepository
+CustomerRepositoryFactory
+CustomerFacade
+CustomerStore
+CustomerManager
+```
+
+unless your architecture actually requires them.
+
+Start:
+
+```text
+Component
+   ↓
+CustomerService
+   ↓
+HttpClient
+```
+
+and add complexity when reality demands it.
+
+This is one of the biggest differences between **maintainable architecture** and **over-engineered architecture**.
+
+---
+
+# 23. Build observability into the application
+
+For a business application, I'd strongly consider application monitoring from the beginning.
+
+At minimum:
+
+```text
+Errors
+Performance
+Failed API requests
+Navigation
+Critical workflows
+```
+
+Depending on your company's Azure setup, this might mean Application Insights or another approved monitoring platform.
+
+Also establish:
+
+```text
+console.log ❌
+structured logging ✅
+```
+
+for anything that needs production investigation.
+
+---
+
+# 24. Security should be considered from day one
+
+At minimum establish:
+
+- Authentication mechanism
+- Authorization model
+- Token handling
+- API authorization
+- XSS protection
+- CSRF strategy where applicable
+- Content Security Policy where appropriate
+- Secure environment configuration
+- Dependency vulnerability scanning
+- No secrets committed to Git
+
+Most importantly:
+
+> **Never put secrets in an Angular application's source or environment files.**
+
+Anything shipped to the browser must be assumed visible to the user.
+
+---
+
+# 25. Think about performance before the application becomes large
+
+You don't need to obsess over optimization on day one.
+
+But establish good defaults:
+
+- Lazy-loaded routes
+- `OnPush` where appropriate
+- Signals where appropriate
+- Avoid unnecessary subscriptions
+- Avoid huge component trees
+- Paginate large datasets
+- Virtualize large lists when appropriate
+- Optimize images/assets
+- Don't download data you don't need
+
+Angular's newer reactivity model and compiler/runtime optimizations are specifically intended to support fast applications as they grow. ([Angular][4])
+
+---
+
+# 26. One thing I would explicitly avoid: a giant custom UI library
+
+Since your Figma design is based on Material 3, there is a temptation to build:
+
+```text
+CompanyButton
+CompanyInput
+CompanySelect
+CompanyDialog
+CompanyTable
+CompanyCard
+CompanyForm
+Company...
+```
+
+for absolutely everything.
+
+Don't.
+
+Instead:
+
+```text
+Angular Material
+       ↓
+small company-specific wrappers
+       ↓
+business components
+```
+
+Only build a custom abstraction when it provides meaningful value.
+
+That will save you **a huge amount of development time** as a solo developer.
+
+---
+
+# 27. A practical project structure
+
+For the type of project you're describing, I'd initially target something approximately like:
+
+```text
+my-company-app/
+│
+├── .azuredevops/
+│
+├── docs/
+│   ├── adr/
+│   ├── architecture.md
+│   └── design-system.md
+│
+├── src/
+│   ├── app/
+│   │   │
+│   │   ├── core/
+│   │   │   ├── auth/
+│   │   │   ├── configuration/
+│   │   │   ├── http/
+│   │   │   └── logging/
+│   │   │
+│   │   ├── shared/
+│   │   │   ├── ui/
+│   │   │   ├── directives/
+│   │   │   └── pipes/
+│   │   │
+│   │   ├── features/
+│   │   │   ├── dashboard/
+│   │   │   ├── customers/
+│   │   │   ├── reports/
+│   │   │   └── settings/
+│   │   │
+│   │   ├── app.component.ts
+│   │   ├── app.config.ts
+│   │   ├── app.routes.ts
+│   │   └── app.component.html
+│   │
+│   ├── styles/
+│   │   ├── theme.scss
+│   │   ├── tokens.scss
+│   │   └── utilities.scss
+│   │
+│   ├── assets/
+│   │
+│   ├── index.html
+│   └── main.ts
+│
+├── angular.json
+├── eslint.config.js
+├── package.json
+├── package-lock.json
+├── tsconfig.json
+├── README.md
+└── azure-pipelines.yml
+```
+
+I wouldn't necessarily create every directory on day one. Let the structure emerge as features arrive.
+
+---
+
+# 28. My recommended priority order
+
+Because **you're the only developer**, I would not spend two weeks establishing architecture before delivering the first feature.
+
+I'd approach it in this order:
+
+### Phase 1 — Foundation
+
+Get these right:
+
+```text
+Angular project
+TypeScript strictness
+Standalone architecture
+Routing
+Figma design tokens
+Material 3 theme
+ESLint
+Formatting
+Git
+Azure Pipeline
+```
+
+### Phase 2 — First real feature
+
+Build one complete feature end-to-end:
+
+```text
+Figma
+  ↓
+Component
+  ↓
+Service
+  ↓
+API
+  ↓
+Error handling
+  ↓
+Loading states
+  ↓
+Tests
+  ↓
+CI/CD
+```
+
+This is important because you'll discover architectural problems by actually building something.
+
+### Phase 3 — Stabilize the patterns
+
+Once you've built the first feature, extract the patterns that genuinely repeat:
+
+```text
+API handling
+Forms
+Loading
+Errors
+Dialogs
+Tables
+Notifications
+Permissions
+```
+
+Then turn those patterns into reusable infrastructure.
+
+### Phase 4 — Scale cautiously
+
+Only after you've encountered real complexity should you consider:
+
+```text
+More sophisticated state management
+Nx
+Angular libraries
+advanced caching
+custom tooling
+micro-frontends
+```
+
+---
+
+# 29. The five decisions I'd spend the most time on
+
+For your specific situation, these are the ones that matter most:
+
+| Decision                                          | Importance |
+| ------------------------------------------------- | ---------- |
+| **Figma → Material 3 → Angular theming strategy** | ⭐⭐⭐⭐⭐ |
+| **Feature-based application architecture**        | ⭐⭐⭐⭐⭐ |
+| **Azure CI/CD and deployment strategy**           | ⭐⭐⭐⭐⭐ |
+| **API/state/error-handling conventions**          | ⭐⭐⭐⭐   |
+| **Testing and coding standards**                  | ⭐⭐⭐⭐   |
+
+Everything else can evolve.
+
+The **design-system integration** deserves particular attention because once dozens of screens are built on top of an inconsistent styling approach, correcting it becomes expensive.
+
+---
+
+## The architecture I'd personally choose for you
+
+Given that you're working alone and want **speed + long-term maintainability**, my default would be:
+
+```text
+                   ┌─────────────────────┐
+                   │       Figma         │
+                   │    Material 3       │
+                   └──────────┬──────────┘
+                              ↓
+                   ┌─────────────────────┐
+                   │ Design Tokens / CSS │
+                   │ Angular Material    │
+                   └──────────┬──────────┘
+                              ↓
+                   ┌─────────────────────┐
+                   │ Company UI Layer    │
+                   │ Small + reusable    │
+                   └──────────┬──────────┘
+                              ↓
+        ┌─────────────────────┴─────────────────────┐
+        ↓                     ↓                     ↓
+   Dashboard              Customers              Reports
+     Feature                Feature               Feature
+        │                     │                     │
+        └─────────────────────┼─────────────────────┘
+                              ↓
+                     Angular Services
+                              ↓
+                         HttpClient
+                              ↓
+                            API
+```
+
+with:
+
+```text
+Angular
+Standalone components
+Signals + RxJS
+Reactive Forms
+Lazy-loaded features
+Angular Material
+Strict TypeScript
+ESLint
+Unit/component tests
+Targeted E2E tests
+Azure DevOps Git
+Azure Pipelines
+Automated deployment
+Monitoring
+Short ADRs
+```
+
+That is a very good **"one developer can move quickly without creating a future disaster"** architecture.
+
+One final point: **don't confuse enterprise architecture with a lot of architecture**. Since you're the only developer, the best architecture is usually the smallest architecture that gives you strong boundaries, repeatable conventions, automated quality checks, and an easy path to add features. Angular's own guidance emphasizes consistency, feature-oriented organization, focused components, and avoiding unnecessarily complicated code, which lines up particularly well with that approach. ([Angular][1])
+
+[1]: https://angular.dev/style-guide?utm_source=chatgpt.com "Style Guide • Angular"
+[2]: https://angular.dev/reference/migrations/standalone?utm_source=chatgpt.com "Standalone • Angular"
+[3]: https://learn.microsoft.com/en-us/azure/devops/pipelines/ecosystems/javascript?view=azure-devops&utm_source=chatgpt.com "Build and publish a Node.js package - Azure Pipelines | Microsoft Learn"
+[4]: https://angular.dev/overview?utm_source=chatgpt.com "What is Angular? • Angular"
