@@ -1,0 +1,6 @@
+- View.SolutionExplorer
+  - Ctrl + B (Global)
+- Window.CloseToolWindow
+  - Ctrl + B (Solution Explorer)
+- SolutionExplorer.CollapseAll
+  - Ctrl + E (Solution Explorer)
